@@ -1,253 +1,101 @@
-""" Classify using multiscale pfh1 feature
-Usage:
-    classify <output_path>
-    feature_visualization -h | --help
-    feature_visualization --version
-Options:
-    -h --help   
-                        The <output_path> argument must be a path to a diretory for storing the confusion matrix and so on.
-
-"""
-
-import pandas as ps
-from sklearn.ensemble import RandomForestClassifier
-import matplotlib.pylab as plt
-from sklearn import metrics
-from sklearn.model_selection import train_test_split, cross_val_score
-from sklearn.externals import joblib
-import matplotlib as mpl
-from sklearn.model_selection import GridSearchCV
-from sklearn.metrics import classification_report
-from sklearn.metrics import confusion_matrix
-import itertools
 import numpy as np
-import gc
-import os, shutil
+import collections
 
-def plot_confusion_matrix(cm, classes, normalize = False, title = 'Confusion matrix', cmap = plt.cm.Purples):
-    """
-    This function prints and plots the confusion matrix.
-    Normalization can be applied by setting 'normalize = True'
-    """
-    if normalize:
-        cm = cm.astype('float') / cm.sum(axis = 1)[:, np.newaxis]
-        print("Normalized confusion matrix")
-    else:
-        print('Confusion matrix, without normalization')
-    
-    #print(cm)
-    plt.imshow(cm, interpolation = 'nearest', cmap = cmap)
-    plt.title(title, fontsize = 20)
-    plt.colorbar()
-    tick_marks = np.arange(len(classes))
-    plt.xticks(tick_marks, classes, rotation = 45, rotation_mode='anchor', ha='right', fontsize = 'large')
-    plt.yticks(tick_marks, classes, fontsize = 'large')
-    
-    fmt = '.2f' if normalize else 'd'
-    thresh = cm.max() / 2.
-    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
-        plt.text(j, i, format(cm[i, j], fmt),
-                horizontalalignment = "center",
-                 color = "white" if cm[i, j] > thresh else "black", fontsize = 13)
-    plt.ylabel('True label', fontsize = 15)
-    plt.xlabel('Predicted label', fontsize = 15)
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import precision_recall_fscore_support
 
+from imblearn.under_sampling import RandomUnderSampler
+from imblearn.ensemble import EasyEnsemble
+from sklearn.neighbors import KDTree
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.utils import check_random_state
+
+class_name =  ['Powerline', 'Low Vegetation', 'Impervious Surface', 'Car', 'Fence', 'Roof', 'Facade', 'Shrub', 'Tree']
+
+def feature_extraction(cloud):
+    
+    #calculathe the fpfh data
+    fpfh = cloud[:, 1:34]
+    
+    # calculate the normal vector
+    normal = cloud[:, 38:41]
+    
+    # calculate relative_height
+    ground_xyz = cloud[cloud[:,0].astype(int)==1,-3:]
+    kdt = KDTree(ground_xyz[:, 0:2], metric = 'euclidean')
+    ind = kdt.query(cloud[:, -3:-1], k=1, return_distance = False)
+    relative_height = cloud[:, -1] - ground_xyz[ind.flatten(), -1]
+    relative_height = relative_height.reshape([cloud.shape[0], 1])
+    
+    # compose feature 
+    feature = np.hstack((fpfh, normal))
+    feature = np.hstack((feature, relative_height))
+    return feature
+
+# RBF classify the data
+def resample_data(train_feature, train_class, count_sampleset):
+    
+    multiplier = {0: 1.0, 1: 0.1, 2: 0.1, 3: 1.0, 4: 1.0, 5: 0.1, 6: 1.0, 7:0.5, 8: 0.1}
+    target_stats = collections.Counter(train_class)
+    for key, value in target_stats.items():
+        target_stats[key] = int(value * multiplier[key])
+    
+    ee = EasyEnsemble(ratio=target_stats ,n_subsets=count_sampleset)
+    return ee.fit_sample(train_feature, train_class)
+    
+def train_brf(X_resampled, y_resampled, count_learnbase):
+    # generalize dicision tree
+    random_state =42 # in order to every time have the same random discision tree for same data set 
+    random_state = check_random_state(random_state)
+    random_state = random_state.rand(count_learnbase)
+    random_state = random_state * 1000000000
+    random_state = random_state.astype('int')
+    
+    clf_estimator = []
+
+    for i in range(count_learnbase):
+        tmp_clf = DecisionTreeClassifier(max_features='auto', random_state=random_state[i])
+        tmp_clf.fit(X_resampled[i], y_resampled[i])
+        clf_estimator.append(tmp_clf)
+    
+    return clf_estimator
+    
+def predict_brf(clf_estimator, X):
+    first_learnbase = True
+    for clf in clf_estimator:
+        if first_learnbase:
+            predict_X = clf.predict(X)
+            first_learnbase = False
+        else:
+            tmp_predict = clf.predict(X)
+            predict_X = np.vstack((predict_X, tmp_predict))
+    predict = np.apply_along_axis(lambda x: np.argmax(np.bincount(x)), axis=0, arr=predict_X.astype('int'))
+    return predict
 
 if __name__ == "__main__":
-    class_name =  ['Powerline', 'Low Vegtation', 'Impervious Surface', 'Car', 'Fence', 'Roof', 'Facade', 'Shrub', 'Tree']
-    
-    """
-    # train data with multiscale pfh feature
-    train_cloud_1 = np.loadtxt('Vaihingen3D_Training_asZ_pfh1.txt')
-    train_feature_1 = train_cloud_1[: , 0:125]
-    train_class = train_cloud_1[ : , 125]
-    normal = train_cloud_1[:, 130:134]
-    vertical = np.array([0, 0, 1])
-    angle = np.dot(normal, vertical)
-    angle = angle.reshape([angle.shape[0], 1])
-
-    train_cloud_2 = np.loadtxt('Vaihingen3D_Training_asZ_pfh2.txt')
-    train_feature_2 = train_cloud_2[: , 0:125]
-    del train_cloud_2
-    gc.collect()
-
-    train_cloud_3 = np.loadtxt('Vaihingen3D_Training_asZ_pfh3.txt')
-    train_feature_3 = train_cloud_3[: , 0:125]
-    del train_cloud_3
-    gc.collect()
-
-    train_feature_all = np.hstack((train_feature_1, train_feature_2))
-    train_feature_all = np.hstack((train_feature_all, train_feature_3))
-    train_feature_all = np.hstack((train_feature_all, train_cloud_1[ : ,134]))
-    train_feature_all = np.hstack((train_feature_all, angle))
-    del angle, train_cloud_1, train_feature_1, train_feature_2, train_feature_3
-    gc.collect()
-
-    # test data with multiscale pfh feature
-    test_cloud_1 = np.loadtxt('Vaihingen3D_Testing_asZ_pfh1.txt')
-    test_feature_1 = test_cloud_1[: , 0:125]
-    test_class = test_cloud_1[ : , 125]
-
-    test_cloud_2 = np.loadtxt('Vaihingen3D_Testing_asZ_pfh2.txt')
-    test_feature_2 = test_cloud_2[: , 0:125]
-    del test_cloud_2
-    gc.collect()
-
-    test_cloud_3 = np.loadtxt('Vaihingen3D_Testing_asZ_pfh3.txt')
-    test_feature_3 = test_cloud_3[: , 0:125]
-    del test_cloud_3
-    gc.collect()
-
-    test_feature_all = np.hstack((test_feature_1, test_feature_2))
-    test_feature_all = np.hstack((test_feature_all,test_feature_3))
-    test_feature_all = np.hstack((test_feature_all, test_cloud_1[ : , np.array([126, 129, 130, 131, 134])]))
-    del test_cloud_1, test_feature_1, test_feature_2, test_feature_3
-    gc.collect()
-    """ 
-    """
-    train_cloud_3 = np.loadtxt('Vaihingen3D_Training_asZ_pfh3.txt')
-    train_feature_3 = train_cloud_3[: , 0:125]
-    train_class = train_cloud_3[ : , 125]
-    normal = train_cloud_3[:, 129:132]
-    vertical = np.array([0, 0, 1])
-    angle = np.dot(normal, vertical)
-    angle = angle.reshape([angle.shape[0], 1])
-    normalized_height = train_cloud_3[:, 134]
-    normalized_height = normalized_height.reshape([normalized_height.shape[0], 1])
-
-    train_feature_all = np.hstack((train_feature_3, train_cloud_3[ : , np.array([126, 134])]))
-    train_feature_all = np.hstack((train_feature_all, angle))
-    del normal, angle, train_feature_3, normalized_height
-    gc.collect()
-
-    test_cloud_3 = np.loadtxt('Vaihingen3D_Testing_asZ_pfh3.txt')
-    test_feature_3 = test_cloud_3[: , 0:125]
-    test_class = test_cloud_3[ : , 125]
-    normal = test_cloud_3[:, 129:132]
-    angle = np.dot(normal, vertical)
-    angle = angle.reshape([angle.shape[0], 1])
-    normalized_height = test_cloud_3[:, 134]
-    normalized_height = normalized_height.reshape([normalized_height.shape[0], 1])
-
-    #test_feature_all = np.hstack((test_feature_3, normalized_height))
-    test_feature_all = np.hstack((test_feature_3, test_cloud_3[ : , np.array([126, 134])]))
-    test_feature_all = np.hstack((test_feature_all, angle))
-    del normal, angle, test_cloud_3, test_feature_3, normalized_height
-    gc.collect()
-    """
-    """
-    # train data with multiscale fpfh feature
-    train_cloud_1 = np.loadtxt('Vaihingen3D_Training_asZ_fpfh1.txt')
-    train_feature_1 = train_cloud_1[: , 0:33]
-    train_class = train_cloud_1[ : , 33]
-    normal = train_cloud_1[:, 37:40]
-    vertical = np.array([0, 0, 1])
-    angle = np.dot(normal, vertical)
-    angle = angle.reshape([angle.shape[0], 1])
-    normalized_height = train_cloud_1[:, 42]
-    normalized_height = normalized_height.reshape([normalized_height.shape[0], 1])
-
-    train_cloud_2 = np.loadtxt('Vaihingen3D_Training_asZ_fpfh2.txt')
-    train_feature_2 = train_cloud_2[: , 0:33]
-    del train_cloud_2
-    gc.collect()
-
-    train_cloud_3 = np.loadtxt('Vaihingen3D_Training_asZ_fpfh3.txt')
-    train_feature_3 = train_cloud_3[: , 0:33]
-    del train_cloud_3
-    gc.collect()
-
-    train_feature_all = np.hstack((train_feature_1, train_feature_2))
-    train_feature_all = np.hstack((train_feature_all, train_feature_3))
-    train_feature_all = np.hstack((train_feature_all, normalized_height))
-    train_feature_all = np.hstack((train_feature_all, angle))
-    del angle, normalized_height, train_cloud_1, train_feature_1, train_feature_2, train_feature_3
-    gc.collect()
-
-    # test data with multiscale fpfh feature
-    test_cloud_1 = np.loadtxt('Vaihingen3D_Testing_asZ_fpfh1.txt')
-    test_feature_1 = test_cloud_1[: , 0:33]
-    test_class = test_cloud_1[ : , 33]
-    normal = test_cloud_1[:, 37:40]
-    vertical = np.array([0, 0, 1])
-    angle = np.dot(normal, vertical)
-    angle = angle.reshape([angle.shape[0], 1])
-    normalized_height = test_cloud_1[:, 42]
-    normalized_height = normalized_height.reshape([normalized_height.shape[0], 1])
-    
-    test_cloud_2 = np.loadtxt('Vaihingen3D_Testing_asZ_fpfh2.txt')
-    test_feature_2 = test_cloud_2[: , 0:33]
-    del test_cloud_2
-    gc.collect()
-
-    test_cloud_3 = np.loadtxt('Vaihingen3D_Testing_asZ_fpfh3.txt')
-    test_feature_3 = test_cloud_3[: , 0:33]
-    del test_cloud_3
-    gc.collect()
-
-    test_feature_all = np.hstack((test_feature_1, test_feature_2))
-    test_feature_all = np.hstack((test_feature_all, test_feature_3))
-    test_feature_all = np.hstack((test_feature_all, angle))
-    test_feature_all = np.hstack((test_feature_all, normalized_height))
-    del angle, normalized_height, test_cloud_1, test_feature_1, test_feature_2, test_feature_3
-    gc.collect()
-    """
-    
-    # train data with fpfh_3 feature
-    train_cloud_1 = np.loadtxt('Vaihingen3D_Training_asZ_fpfh2.txt')
-    train_feature_1 = train_cloud_1[: , 0:33]
-    train_class = train_cloud_1[ : , 33]
-    normal = train_cloud_1[:, 37:40]
-    # vertical = np.array([0, 0, 1])
-    # angle = np.dot(normal, vertical)
-    # angle = angle.reshape([angle.shape[0], 1])
-    normalized_height = train_cloud_1[:, 42]
-    normalized_height = normalized_height.reshape([normalized_height.shape[0], 1])
-
-    # train_feature_all = np.hstack((train_feature_1, normalized_height))
-    # train_feature_all = np.hstack((train_feature_all, normal))
-    # del angle, normalized_height, train_cloud_1, train_feature_1
-    # gc.collect()
-    train_feature_all = train_feature_1
-
-
-    # test data with multiscale fpfh feature
-    test_cloud_1 = np.loadtxt('Vaihingen3D_Testing_asZ_fpfh2.txt')
-    test_feature_1 = test_cloud_1[: , 0:33]
-    test_class = test_cloud_1[ : , 33]
-    normal = test_cloud_1[:, 37:40]
-    # vertical = np.array([0, 0, 1])
-    # angle = np.dot(normal, vertical)
-    # angle = angle.reshape([angle.shape[0], 1])
-    normalized_height = test_cloud_1[:, 42]
-    normalized_height = normalized_height.reshape([normalized_height.shape[0], 1])
-    
-    test_feature_all = test_feature_1
-    # test_feature_all = np.hstack((test_feature_1, normalized_height))
-    # test_feature_all = np.hstack((test_feature_all, normal))
-    # del angle, normalized_height, test_cloud_1, test_feature_1
-    # gc.collect()
-
-    # train random forest using feature and predict test data label
-    clf = RandomForestClassifier (n_estimators=50, max_depth=None, min_samples_split=2, random_state=0)
-    clf.fit(train_feature_all, train_class)
-    pre_test_class = clf.predict(test_feature_all)
-
-    output_path = './onlywith_fpfh_classify'
-    if os.path.exists(output_path):
-        shutil.rmtree(output_path)
-        os.mkdir(output_path)
-    else:
-        os.mkdir(output_path)
-
-    joblib.dump(clf, output_path + '/' + 'classify.pkl') 
-    
-    with open(output_path + '/' + 'classifaction_report.txt', 'wt') as f:
-        print(classification_report(test_class, pre_test_class, target_names=class_name), file=f)
-
-    confusion_mat = confusion_matrix(test_class, pre_test_class)
-    fig = plt.figure()
-    plot_confusion_matrix(confusion_mat, classes = class_name, title = 'Confusion matrix, without normalization')
-    fig.savefig(output_path + '/' + 'confusion_matrix.jpg', dip=600)
-    with open(output_path + '/' + 'confusion_mat.txt', 'wt') as f:
-        print(confusion_mat, file=f)
+    for radius in range(2, 16, 1):
+        train_data = np.loadtxt('./Vaihingen/fpfh_ground/Vaihingen3D_Traininig_fpfh_{}_ground.txt'.format(radius), skiprows=11)
+        train_data_feature = feature_extraction(train_data)
+        train_data_class = train_data[:, 34]
+        
+        test_data = np.loadtxt('./Vaihingen/fpfh_ground/Vaihingen3D_EVAL_WITH_REF_fpfh_{}_ground.txt'.format(radius), skiprows=11)
+        test_data_feature = feature_extraction(test_data)
+        test_data_class = test_data[:, 34]
+        
+        count_learnbase = 50
+        X_resampled, y_resampled = resample_data(train_data_feature, train_data_class, count_learnbase)
+        clf_estimator = train_brf(X_resampled, y_resampled, count_learnbase)
+        test_predict = predict_brf(clf_estimator, test_data_feature)
+        precision_recall_fscore = precision_recall_fscore_support(test_data_class, test_predict)
+        precision_recall_fscore_average = precision_recall_fscore_support(test_data_class, test_predict, average='weighted')
+        for i in range(3):
+            if i == 0:
+                measure = np.append(precision_recall_fscore[i], precision_recall_fscore_average[i])
+            else:
+                tmp = np.append(precision_recall_fscore[i], precision_recall_fscore_average[i])
+                measure = np.vstack((measure, tmp))
+        if radius == 2:
+            final_measure = measure
+        else:
+            final_measure = np.dstack(final_measure, measure)
+    np.save('./classify_output/final_measure.npy', final_measure)
