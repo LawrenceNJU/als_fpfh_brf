@@ -40,8 +40,7 @@ if __name__ == "__main__":
         os.mkdir(output_path)
     else:
         os.mkdir(output_path)
-    
-    cloud = np.loadtxt(feature_path)
+    cloud = np.loadtxt(feature_path, skiprows=11)
     if feature_type == 'pfh':
         train_feature = cloud[:, 0:125]
         train_class = cloud[:, 125]
@@ -52,7 +51,7 @@ if __name__ == "__main__":
         print("this feature cannot be visuliazed using the current code")
         exit(-1)
    
-    class_name = ['Powerline', 'LowVegtation', 'ImperviousSurface', 'Car', 'Fence', 'Roof', 'Facade', 'Shrub', 'Tree']
+    class_name = ['Powerline', 'LowVegetation', 'ImperviousSurface', 'Car', 'Fence', 'Roof', 'Facade', 'Shrub', 'Tree']
     feature_class = np.hstack((train_feature, train_class.reshape([train_class.shape[0],1])))
     plt.style.use('default')
     mpl.rcParams['figure.figsize'] = 8.4, 9.6

@@ -15,5 +15,5 @@ include_directories(${PCL_INCLUDE_DIRS})
 link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
 
-add_executable (pmf_tool pmf_tool.cpp)
-target_link_libraries(pmf_tool ${PCL_LIBRARIES} boost_system)
+add_executable (pcd_concatenate pcd_concatenate.cpp)
+target_link_libraries(pcd_concatenate ${PCL_LIBRARIES} boost_system)

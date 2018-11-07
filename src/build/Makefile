@@ -111,44 +111,44 @@ depend:
 .PHONY : depend
 
 #=============================================================================
-# Target rules for targets named pmf_tool
+# Target rules for targets named pcd_concatenate
 
 # Build rule for target.
-pmf_tool: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 pmf_tool
-.PHONY : pmf_tool
+pcd_concatenate: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 pcd_concatenate
+.PHONY : pcd_concatenate
 
 # fast build rule for target.
-pmf_tool/fast:
-	$(MAKE) -f CMakeFiles/pmf_tool.dir/build.make CMakeFiles/pmf_tool.dir/build
-.PHONY : pmf_tool/fast
+pcd_concatenate/fast:
+	$(MAKE) -f CMakeFiles/pcd_concatenate.dir/build.make CMakeFiles/pcd_concatenate.dir/build
+.PHONY : pcd_concatenate/fast
 
-pmf_tool.o: pmf_tool.cpp.o
+pcd_concatenate.o: pcd_concatenate.cpp.o
 
-.PHONY : pmf_tool.o
+.PHONY : pcd_concatenate.o
 
 # target to build an object file
-pmf_tool.cpp.o:
-	$(MAKE) -f CMakeFiles/pmf_tool.dir/build.make CMakeFiles/pmf_tool.dir/pmf_tool.cpp.o
-.PHONY : pmf_tool.cpp.o
+pcd_concatenate.cpp.o:
+	$(MAKE) -f CMakeFiles/pcd_concatenate.dir/build.make CMakeFiles/pcd_concatenate.dir/pcd_concatenate.cpp.o
+.PHONY : pcd_concatenate.cpp.o
 
-pmf_tool.i: pmf_tool.cpp.i
+pcd_concatenate.i: pcd_concatenate.cpp.i
 
-.PHONY : pmf_tool.i
+.PHONY : pcd_concatenate.i
 
 # target to preprocess a source file
-pmf_tool.cpp.i:
-	$(MAKE) -f CMakeFiles/pmf_tool.dir/build.make CMakeFiles/pmf_tool.dir/pmf_tool.cpp.i
-.PHONY : pmf_tool.cpp.i
+pcd_concatenate.cpp.i:
+	$(MAKE) -f CMakeFiles/pcd_concatenate.dir/build.make CMakeFiles/pcd_concatenate.dir/pcd_concatenate.cpp.i
+.PHONY : pcd_concatenate.cpp.i
 
-pmf_tool.s: pmf_tool.cpp.s
+pcd_concatenate.s: pcd_concatenate.cpp.s
 
-.PHONY : pmf_tool.s
+.PHONY : pcd_concatenate.s
 
 # target to generate assembly for a file
-pmf_tool.cpp.s:
-	$(MAKE) -f CMakeFiles/pmf_tool.dir/build.make CMakeFiles/pmf_tool.dir/pmf_tool.cpp.s
-.PHONY : pmf_tool.cpp.s
+pcd_concatenate.cpp.s:
+	$(MAKE) -f CMakeFiles/pcd_concatenate.dir/build.make CMakeFiles/pcd_concatenate.dir/pcd_concatenate.cpp.s
+.PHONY : pcd_concatenate.cpp.s
 
 # Help Target
 help:
@@ -157,11 +157,11 @@ help:
 	@echo "... clean"
 	@echo "... depend"
 	@echo "... rebuild_cache"
-	@echo "... pmf_tool"
+	@echo "... pcd_concatenate"
 	@echo "... edit_cache"
-	@echo "... pmf_tool.o"
-	@echo "... pmf_tool.i"
-	@echo "... pmf_tool.s"
+	@echo "... pcd_concatenate.o"
+	@echo "... pcd_concatenate.i"
+	@echo "... pcd_concatenate.s"
 .PHONY : help
 
 

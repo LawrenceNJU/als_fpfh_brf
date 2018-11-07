@@ -1,3 +1,9 @@
+<<<<<<< Updated upstream
+=======
+# -*-coding: utf-8 -*-
+__authot__ = 'Xiaoqiang Liu'
+
+>>>>>>> Stashed changes
 import numpy as np
 import collections
 
@@ -57,9 +63,15 @@ def train_brf(X_resampled, y_resampled, count_learnbase):
         tmp_clf = DecisionTreeClassifier(max_features='auto', random_state=random_state[i])
         tmp_clf.fit(X_resampled[i], y_resampled[i])
         clf_estimator.append(tmp_clf)
+<<<<<<< Updated upstream
     
     return clf_estimator
     
+=======
+    
+    return clf_estimator
+    
+>>>>>>> Stashed changes
 def predict_brf(clf_estimator, X):
     first_learnbase = True
     for clf in clf_estimator:
@@ -74,11 +86,19 @@ def predict_brf(clf_estimator, X):
 
 if __name__ == "__main__":
     for radius in range(2, 16, 1):
+<<<<<<< Updated upstream
         train_data = np.loadtxt('./Vaihingen/fpfh_ground/Vaihingen3D_Traininig_fpfh_{}_ground.txt'.format(radius), skiprows=11)
         train_data_feature = feature_extraction(train_data)
         train_data_class = train_data[:, 34]
         
         test_data = np.loadtxt('./Vaihingen/fpfh_ground/Vaihingen3D_EVAL_WITH_REF_fpfh_{}_ground.txt'.format(radius), skiprows=11)
+=======
+        train_data = np.loadtxt('../data/output/fpfh_ground/Vaihingen3D_Traininig_fpfh_{}_ground.txt'.format(radius), skiprows=11)
+        train_data_feature = feature_extraction(train_data)
+        train_data_class = train_data[:, 34]
+        
+        test_data = np.loadtxt('../data/output/fpfh_ground/Vaihingen3D_EVAL_WITH_REF_fpfh_{}_ground.txt'.format(radius), skiprows=11)
+>>>>>>> Stashed changes
         test_data_feature = feature_extraction(test_data)
         test_data_class = test_data[:, 34]
         
@@ -97,5 +117,11 @@ if __name__ == "__main__":
         if radius == 2:
             final_measure = measure
         else:
+<<<<<<< Updated upstream
             final_measure = np.dstack(final_measure, measure)
     np.save('./classify_output/final_measure.npy', final_measure)
+=======
+            final_measure = np.dstack((final_measure, measure))
+        print('radius: {}'.format(radius))
+    np.save('./final_measure.npy', final_measure)
+>>>>>>> Stashed changes
